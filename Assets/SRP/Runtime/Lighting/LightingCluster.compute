@@ -1,0 +1,107 @@
+﻿#pragma kernel ClusterGridBuild USE_CLUSTERED_LIGHTLIST
+#pragma kernel GridLightBuild USE_CLUSTERED_LIGHTLIST
+
+#pragma exclude_renderers d3d11_9x
+#pragma exclude_renderers d3d9
+
+#include "Assets/SRP/Runtime/ShaderLibrary/Core.hlsl"
+#include "LightingCluster.hlsl"
+
+#if defined(SHADER_API_MOBILE) || defined(SHADER_API_SWITCH)
+#define PLATFORM_LANE_COUNT 32
+#endif
+
+struct CSInput
+{
+    uint3 groupThreadID : SV_GroupThreadID;
+    uint3 dispatchThreadId : SV_DispatchThreadID;
+    uint groupIndex : SV_GroupIndex;
+    uint3 groupID : SV_GroupID;
+};
+
+//Save grid AABB. XY in screen space,Z in view space. 
+//One thread per grid
+[numthreads(CLUSTER_GRID_BUILD_NUMTHREADS_X, CLUSTER_GRID_BUILD_NUMTHREADS_Y, LIGHTING_CLUSTER_Z_SLICE)]
+void ClusterGridBuild(CSInput input)
+{
+    //Per cluster variables
+    uint batch = _LightingCluster_Data.x / CLUSTER_GRID_BUILD_NUMTHREADS_X;
+    uint gridIndex = GridPos2GridIndex(input.dispatchThreadId);
+    
+    //Z∈[0,-∞] in View space
+    //XY in screen space [0,1] bottom-left origin
+    float clusterNear = -_LightingCluster_ZNear * pow(_LightingCluster_ZFar / _LightingCluster_ZNear, input.dispatchThreadId.z / (float) LIGHTING_CLUSTER_Z_SLICE);
+    float clusterFar = -_LightingCluster_ZNear * pow(_LightingCluster_ZFar / _LightingCluster_ZNear, (input.dispatchThreadId.z + 1) / (float) LIGHTING_CLUSTER_Z_SLICE);
+
+    //Calculating the min and max point in screen space[1,0]
+    float4 minPoint = float4((input.dispatchThreadId.xy / _LightingCluster_Data.xy),
+                            clusterNear, 1.0); // Top left
+    float4 maxPoint = float4((input.dispatchThreadId.xy + 1) / _LightingCluster_Data.xy,
+                                 clusterFar, 1.0); // Bottom Right
+    //minPoint.x = input.dispatchThreadId.z;
+    _LightingCluster_Grid_RW[gridIndex].minPoint = minPoint;
+    _LightingCluster_Grid_RW[gridIndex].maxPoint = maxPoint;
+}
+
+
+//void markActiveClusters()
+//{
+//    //Getting the depth value
+//    float2 screenCord = pixelID.xy / screenDimensions.xy;
+//    float z = texture(screenCord); //reading the depth buffer
+
+//    //Getting the linear cluster index value
+//    uint clusterID = getClusterIndex(vec3(pixelID.xy, z));
+//    clusterActive[clusterID] = true;
+//}
+
+
+
+//[numthreads(8, 8, 1)]
+//void GridCulling(CSInput input)
+//{
+//    uint2 coord = input.dispatchThreadId.xy;
+//    float depth = depthBuffer.Load(uint3(coord, 0)).r;
+//    depth = LinearEyeDepth(depth, _LightingCluster_ZFar, _LightingCluster_ZNear);
+//}
+ 
+
+
+groupshared uint lightIndexOffset = 0;
+
+RWStructuredBuffer<uint> _ClusterActive;
+
+[numthreads(CLUSTER_GRID_BUILD_NUMTHREADS_X, CLUSTER_GRID_BUILD_NUMTHREADS_Y, LIGHTING_CLUSTER_Z_SLICE)]
+void GridLightBuild(CSInput input)
+{
+    uint gridIndex = GridPos2GridIndex(input.dispatchThreadId);
+    
+    uint visibleLightCount = 0;
+    uint visibleLightIndices[MAX_ADDITIONAL_LIGHTS_COUNT];
+    
+    UNITY_LOOP
+    for (uint i = 0; i < _AdditionalLightsCount; i++)
+    {
+        if (LightGridIntersection(i, gridIndex))
+        {
+            visibleLightIndices[visibleLightCount] = i;
+            visibleLightCount++;
+        }
+    }
+    
+    GroupMemoryBarrierWithGroupSync();
+    
+    uint offset;
+    InterlockedAdd(lightIndexOffset, visibleLightCount, offset);
+    
+    UNITY_LOOP
+    for (uint index = 0; index < visibleLightCount; index++)
+    {
+        _LightingCluster_LightIndex_RW[offset + index] = visibleLightIndices[index];
+    }
+    
+    _LightingCluster_GridIndex_RW[gridIndex] = EncodeLightIndex(offset, visibleLightCount);
+    
+}
+
+

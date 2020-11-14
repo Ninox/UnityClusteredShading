@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fb806cb97aa93c94191fd4e12249bec6, type: 3}
+  m_Name: GraphicProfileAsset
+  m_EditorClassIdentifier: 
+  cs: {fileID: 7200000, guid: 3655a8c5af5341d40909df0e4efa28c6, type: 3}
+  renderingPath:
+    RenderingPath: 0
+    ZPrePass: 0
+  lightingSetting:
+    ClusterLighting: 1
+    ShadowSetting:
+      SoftShadow: 0
+      ScreenSpaceShadowMap: 0
+      NormalBias: 0.1
+      SlopeBias: 0.1
+      mainLightsShadowSetting:
+        MaxDistance: 50
+        Resolution: 2048
+        Cascades: 4
+        SplitRatio1: 0.3
+        SplitRatio2: 0.4
+        SplitRatio3: 0.5
+        CascdeFading: 0.1
+      punctualsShadowSetting:
+        Resolution: 2048

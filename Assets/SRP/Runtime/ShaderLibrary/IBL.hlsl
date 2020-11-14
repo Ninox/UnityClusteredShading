@@ -1,0 +1,4 @@
+#ifndef NINOX_SRP_IBL_INCLUDED
+#define NINOX_SRP_IBL_INCLUDED
+
+#endif

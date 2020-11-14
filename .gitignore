@@ -8,3 +8,5 @@ shadertoolsconfig.json
 >>>>>>> main
 /obj
 /.vs
+/*.sln
+/*.csproj
